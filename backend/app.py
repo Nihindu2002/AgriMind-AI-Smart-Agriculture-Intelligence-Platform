@@ -4,6 +4,7 @@ import joblib
 import pandas as pd
 from database import engine, SessionLocal
 from models import Base, CropPrediction
+from fastapi import HTTPException
 
 app = FastAPI(title="AgriMind AI API")
 Base.metadata.create_all(bind=engine)
@@ -64,3 +65,24 @@ def get_crop_history():
     db.close()
 
     return history
+
+@app.delete("/crop-history/{prediction_id}")
+def delete_crop_history(prediction_id: int):
+    db = SessionLocal()
+
+    prediction = db.query(CropPrediction).filter(
+        CropPrediction.id == prediction_id
+    ).first()
+
+    if prediction is None:
+        db.close()
+        raise HTTPException(status_code=404, detail="Prediction not found")
+
+    db.delete(prediction)
+    db.commit()
+    db.close()
+
+    return {
+        "message": "Prediction deleted successfully",
+        "deleted_id": prediction_id
+    }
