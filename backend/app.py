@@ -86,3 +86,20 @@ def delete_crop_history(prediction_id: int):
         "message": "Prediction deleted successfully",
         "deleted_id": prediction_id
     }
+
+@app.get("/crop-stats")
+def get_crop_stats():
+    db = SessionLocal()
+
+    total_predictions = db.query(CropPrediction).count()
+
+    latest_prediction = db.query(CropPrediction).order_by(
+        CropPrediction.created_at.desc()
+    ).first()
+
+    db.close()
+
+    return {
+        "total_predictions": total_predictions,
+        "latest_recommended_crop": latest_prediction.recommended_crop if latest_prediction else None
+    }
