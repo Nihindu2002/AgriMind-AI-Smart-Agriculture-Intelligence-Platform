@@ -53,3 +53,14 @@ def predict_crop(data: CropInput):
         "id": new_prediction.id,
         "recommended_crop": crop_name
     }
+@app.get("/crop-history")
+def get_crop_history():
+    db = SessionLocal()
+
+    history = db.query(CropPrediction).order_by(
+        CropPrediction.created_at.desc()
+    ).all()
+
+    db.close()
+
+    return history
