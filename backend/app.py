@@ -5,9 +5,17 @@ import pandas as pd
 from database import engine, SessionLocal
 from models import Base, CropPrediction
 from fastapi import HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="AgriMind AI API")
 Base.metadata.create_all(bind=engine)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 model = joblib.load("crop_recommendation/crop_model.pkl")
 label_encoder = joblib.load("crop_recommendation/label_encoder.pkl")
