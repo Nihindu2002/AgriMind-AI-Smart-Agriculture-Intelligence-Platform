@@ -3,6 +3,7 @@ import CropPredictionForm from "./CropPredictionForm";
 import CropHistory from "./CropHistory";
 import PlantDiseaseUpload from "./PlantDiseaseUpload";
 import DiseaseHistory from "./DiseaseHistory";
+import WeatherAdvisory from "./WeatherAdvisory";
 
 function App() {
   const [refreshHistory, setRefreshHistory] = useState(false);
@@ -23,6 +24,8 @@ function App() {
       />
 
       <DiseaseHistory refreshDiseaseHistory={refreshDiseaseHistory} />
+
+      <WeatherAdvisory />
     </div>
   );
 }
