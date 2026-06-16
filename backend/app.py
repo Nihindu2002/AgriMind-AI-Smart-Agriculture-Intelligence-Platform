@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import io
 import json
+from threading import Lock
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
@@ -18,7 +19,6 @@ from google.auth.transport import requests as google_requests
 
 import joblib
 import pandas as pd
-import tensorflow as tf
 import numpy as np
 from PIL import Image
 
@@ -59,9 +59,6 @@ disease_info_path = BASE_DIR / "plant_disease_detection" / "disease_info.json"
 if not disease_info_path.exists():
     raise FileNotFoundError(f"Disease info file not found at: {disease_info_path}")
 
-if not disease_model_path.exists():
-    raise FileNotFoundError(f"Disease model not found at: {disease_model_path}")
-
 if not disease_class_names_path.exists():
     raise FileNotFoundError(f"Disease class names file not found at: {disease_class_names_path}")
 
@@ -72,8 +69,35 @@ if not label_encoder_path.exists():
     raise FileNotFoundError(f"Label encoder not found at: {label_encoder_path}")
 
 
-# Load models
-disease_model = tf.keras.models.load_model(str(disease_model_path))
+# Load lightweight assets at startup. The TensorFlow model is loaded lazily.
+disease_model = None
+disease_model_lock = Lock()
+
+
+def get_disease_model():
+    global disease_model
+
+    if not disease_model_path.exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f"Disease detection model file is missing at: {disease_model_path}",
+        )
+
+    if disease_model is None:
+        with disease_model_lock:
+            if disease_model is None:
+                try:
+                    import tensorflow as tf
+
+                    disease_model = tf.keras.models.load_model(str(disease_model_path))
+
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Unable to load disease detection model",
+                    ) from e
+
+    return disease_model
 
 with open(disease_class_names_path, "r") as f:
     disease_class_names = json.load(f)
@@ -362,7 +386,8 @@ async def predict_disease(
     img_array = np.array(img)
     img_array = np.expand_dims(img_array, axis=0)
 
-    predictions = disease_model.predict(img_array)
+    model = get_disease_model()
+    predictions = model.predict(img_array)
 
     predicted_index = int(np.argmax(predictions[0]))
     confidence = float(predictions[0][predicted_index])
