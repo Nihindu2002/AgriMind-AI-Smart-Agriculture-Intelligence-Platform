@@ -17,7 +17,7 @@ import numpy as np
 from PIL import Image
 
 from database import engine, SessionLocal
-from models import Base, CropPrediction
+from models import Base, CropPrediction, DiseasePrediction
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -195,7 +195,39 @@ async def predict_disease(file: UploadFile = File(...)):
     confidence = float(predictions[0][predicted_index])
     disease_name = disease_class_names[predicted_index]
 
-    return {
-        "disease": disease_name,
-        "confidence": round(confidence * 100, 2),
-    }
+    db = SessionLocal()
+
+    try:
+        new_prediction = DiseasePrediction(
+            filename=file.filename,
+            disease=disease_name,
+            confidence=round(confidence * 100, 2),
+        )
+
+        db.add(new_prediction)
+        db.commit()
+        db.refresh(new_prediction)
+
+        return {
+            "id": new_prediction.id,
+            "filename": file.filename,
+            "disease": disease_name,
+            "confidence": round(confidence * 100, 2),
+        }
+
+    finally:
+        db.close()
+
+@app.get("/disease-history")
+def get_disease_history():
+    db = SessionLocal()
+
+    try:
+        history = db.query(DiseasePrediction).order_by(
+            DiseasePrediction.created_at.desc()
+        ).all()
+
+        return history
+
+    finally:
+        db.close()
