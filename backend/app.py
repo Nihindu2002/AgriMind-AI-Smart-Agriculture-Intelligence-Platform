@@ -6,7 +6,7 @@ import json
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
-from fastapi import Depends, FastAPI, HTTPException, UploadFile, File
+from fastapi import Depends, FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
@@ -28,7 +28,11 @@ import tempfile
 import cloudinary.uploader
 import cloudinary_config
 
-from weather.weather_service import get_current_weather
+from weather.weather_service import (
+    WeatherServiceError,
+    get_current_weather,
+    get_current_weather_by_location,
+)
 from weather.recommendations import generate_weather_recommendations
 
 
@@ -83,7 +87,7 @@ Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -292,19 +296,42 @@ def get_disease_history(
         db.close()
 
 
+def build_weather_advisory_response(weather):
+    recommendations = generate_weather_recommendations(weather)
+
+    return {
+        "weather": weather,
+        "recommendations": recommendations
+    }
+
+
+@app.get("/weather-advisory-location")
+def weather_advisory_location(
+    lat: float = Query(..., description="Latitude for current location"),
+    lon: float = Query(..., description="Longitude for current location"),
+):
+    try:
+        weather = get_current_weather_by_location(lat, lon)
+        return build_weather_advisory_response(weather)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except WeatherServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
 @app.get("/weather-advisory/{city}")
 def weather_advisory(city: str):
     try:
         weather = get_current_weather(city)
-        recommendations = generate_weather_recommendations(weather)
+        return build_weather_advisory_response(weather)
 
-        return {
-            "weather": weather,
-            "recommendations": recommendations
-        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except WeatherServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     
 
 @app.post("/predict-disease")
