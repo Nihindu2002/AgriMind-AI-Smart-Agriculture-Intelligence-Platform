@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "./api";
 
 function CropPredictionForm({ onPredictionSaved }) {
   const [formData, setFormData] = useState({
@@ -32,7 +33,7 @@ function CropPredictionForm({ onPredictionSaved }) {
 
     try {
       const response = await axios.post(
-        "http://127.0.0.1:8000/predict-crop",
+        `${API_BASE_URL}/predict-crop`,
         formData,
         {
           headers: getAuthHeaders(),

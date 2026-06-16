@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "./api";
 
 function PlantDiseaseUpload({ onDiseaseSaved }) {
   const [file, setFile] = useState(null);
@@ -43,7 +44,7 @@ function PlantDiseaseUpload({ onDiseaseSaved }) {
       formData.append("file", file);
 
       const response = await axios.post(
-        "http://127.0.0.1:8000/predict-disease",
+        `${API_BASE_URL}/predict-disease`,
         formData,
         {
           headers: {

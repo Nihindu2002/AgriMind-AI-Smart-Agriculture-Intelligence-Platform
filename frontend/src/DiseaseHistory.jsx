@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "./api";
 
 function DiseaseHistory({ refreshDiseaseHistory }) {
   const [history, setHistory] = useState([]);
@@ -20,7 +21,7 @@ function DiseaseHistory({ refreshDiseaseHistory }) {
       setErrorMessage("");
 
       const response = await axios.get(
-        "http://127.0.0.1:8000/disease-history",
+        `${API_BASE_URL}/disease-history`,
         {
           headers: getAuthHeaders(),
         }

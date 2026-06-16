@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "./api";
 
 function WeatherAdvisory() {
   const [city, setCity] = useState("");
@@ -8,7 +9,7 @@ function WeatherAdvisory() {
   const fetchWeather = async () => {
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/weather-advisory/${city}`
+        `${API_BASE_URL}/weather-advisory/${city}`
       );
 
       setWeatherData(response.data);

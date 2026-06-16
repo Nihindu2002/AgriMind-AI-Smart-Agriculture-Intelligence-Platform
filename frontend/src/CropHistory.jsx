@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "./api";
 
 function CropHistory({ refreshHistory }) {
   const [history, setHistory] = useState([]);
@@ -14,7 +15,7 @@ function CropHistory({ refreshHistory }) {
       setErrorMessage("");
 
       const response = await axios.get(
-        "http://127.0.0.1:8000/crop-history",
+        `${API_BASE_URL}/crop-history`,
         {
           headers: getAuthHeaders(),
         }
@@ -36,7 +37,7 @@ function CropHistory({ refreshHistory }) {
       setErrorMessage("");
 
       await axios.delete(
-        `http://127.0.0.1:8000/crop-history/${predictionId}`,
+        `${API_BASE_URL}/crop-history/${predictionId}`,
         {
           headers: getAuthHeaders(),
         }
