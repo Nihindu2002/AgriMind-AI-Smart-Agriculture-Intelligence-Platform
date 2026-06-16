@@ -45,6 +45,23 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = "HS256"
 security = HTTPBearer(auto_error=False)
 
+DEFAULT_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+
+def get_allowed_origins():
+    configured_origins = os.getenv("FRONTEND_ORIGINS")
+
+    if not configured_origins:
+        return DEFAULT_ALLOWED_ORIGINS
+
+    origins = [
+        origin.strip().rstrip("/")
+        for origin in configured_origins.split(",")
+        if origin.strip()
+    ]
+
+    return origins or DEFAULT_ALLOWED_ORIGINS
+
 # Plant disease model paths
 plant_disease_dir = BASE_DIR / "plant_disease_detection" / "models"
 disease_model_path = plant_disease_dir / "plant_disease_model.keras"
@@ -112,7 +129,7 @@ Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
