@@ -26,6 +26,12 @@ import cloudinary_config
 from weather.weather_service import get_current_weather
 from weather.recommendations import generate_weather_recommendations
 
+import os
+from dotenv import load_dotenv
+from jose import jwt
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from models import User
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -298,3 +304,70 @@ async def predict_disease(file: UploadFile = File(...)):
 
     finally:
         db.close()
+
+load_dotenv()
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+JWT_ALGORITHM = "HS256"
+
+
+class GoogleToken(BaseModel):
+    token: str
+
+
+def create_access_token(data: dict):
+    return jwt.encode(data, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+@app.post("/auth/google")
+def google_auth(data: GoogleToken):
+    try:
+        id_info = id_token.verify_oauth2_token(
+            data.token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+
+        google_id = id_info["sub"]
+        email = id_info["email"]
+        name = id_info.get("name")
+        picture = id_info.get("picture")
+
+        db = SessionLocal()
+
+        try:
+            user = db.query(User).filter(User.email == email).first()
+
+            if not user:
+                user = User(
+                    google_id=google_id,
+                    email=email,
+                    name=name,
+                    picture=picture
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+
+            access_token = create_access_token({
+                "user_id": user.id,
+                "email": user.email
+            })
+
+            return {
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "name": user.name,
+                    "picture": user.picture
+                }
+            }
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import GoogleLoginButton from "./GoogleLoginButton";
 import CropPredictionForm from "./CropPredictionForm";
 import CropHistory from "./CropHistory";
 import PlantDiseaseUpload from "./PlantDiseaseUpload";
@@ -9,23 +10,44 @@ function App() {
   const [refreshHistory, setRefreshHistory] = useState(false);
   const [refreshDiseaseHistory, setRefreshDiseaseHistory] = useState(false);
 
+  const [user, setUser] = useState(
+    JSON.parse(localStorage.getItem("user")) || null
+  );
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+  };
+
   return (
     <div>
       <h1>AgriMind AI</h1>
 
-      <CropPredictionForm
-        onPredictionSaved={() => setRefreshHistory((prev) => !prev)}
-      />
+      {!user ? (
+        <GoogleLoginButton onLoginSuccess={setUser} />
+      ) : (
+        <>
+          <p>Logged in as {user.name}</p>
+          <button onClick={handleLogout}>Logout</button>
 
-      <CropHistory refreshHistory={refreshHistory} />
+          <CropPredictionForm
+            onPredictionSaved={() => setRefreshHistory((prev) => !prev)}
+          />
 
-      <PlantDiseaseUpload
-        onDiseaseSaved={() => setRefreshDiseaseHistory((prev) => !prev)}
-      />
+          <CropHistory refreshHistory={refreshHistory} />
 
-      <DiseaseHistory refreshDiseaseHistory={refreshDiseaseHistory} />
+          <PlantDiseaseUpload
+            onDiseaseSaved={() =>
+              setRefreshDiseaseHistory((prev) => !prev)
+            }
+          />
 
-      <WeatherAdvisory />
+          <DiseaseHistory refreshDiseaseHistory={refreshDiseaseHistory} />
+
+          <WeatherAdvisory />
+        </>
+      )}
     </div>
   );
 }
