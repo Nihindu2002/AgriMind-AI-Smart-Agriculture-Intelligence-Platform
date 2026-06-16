@@ -38,6 +38,10 @@ disease_class_names_path = plant_disease_dir / "class_names.json"
 crop_model_path = BASE_DIR / "crop_recommendation" / "crop_model.pkl"
 label_encoder_path = BASE_DIR / "crop_recommendation" / "label_encoder.pkl"
 
+disease_info_path = BASE_DIR / "plant_disease_detection" / "disease_info.json"
+
+if not disease_info_path.exists():
+    raise FileNotFoundError(f"Disease info file not found at: {disease_info_path}")
 
 if not disease_model_path.exists():
     raise FileNotFoundError(f"Disease model not found at: {disease_model_path}")
@@ -84,6 +88,8 @@ class CropInput(BaseModel):
     ph: float
     rainfall: float
 
+with open(disease_info_path, "r") as f:
+    disease_info = json.load(f)
 
 @app.get("/")
 def home():
@@ -183,70 +189,6 @@ def get_crop_stats():
         db.close()
 
 
-@app.post("/predict-disease")
-async def predict_disease(file: UploadFile = File(...)):
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=400,
-            detail="Please upload a valid image file"
-        )
-
-    image_bytes = await file.read()
-
-    # Upload image to Cloudinary
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=".jpg"
-    ) as temp_file:
-        temp_file.write(image_bytes)
-        temp_path = temp_file.name
-
-    upload_result = cloudinary.uploader.upload(
-        temp_path,
-        folder="agrimind_disease_images"
-    )
-
-    image_url = upload_result["secure_url"]
-
-    # Process image for prediction
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    img = img.resize((224, 224))
-
-    img_array = np.array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-
-    predictions = disease_model.predict(img_array)
-
-    predicted_index = int(np.argmax(predictions[0]))
-    confidence = float(predictions[0][predicted_index])
-
-    disease_name = disease_class_names[predicted_index]
-
-    db = SessionLocal()
-
-    try:
-        new_prediction = DiseasePrediction(
-            filename=file.filename,
-            image_url=image_url,
-            disease=disease_name,
-            confidence=round(confidence * 100, 2)
-        )
-
-        db.add(new_prediction)
-        db.commit()
-        db.refresh(new_prediction)
-
-        return {
-            "id": new_prediction.id,
-            "image_url": image_url,
-            "filename": file.filename,
-            "disease": disease_name,
-            "confidence": round(confidence * 100, 2)
-        }
-
-    finally:
-        db.close()
-
 @app.get("/disease-history")
 def get_disease_history():
     db = SessionLocal()
@@ -256,7 +198,21 @@ def get_disease_history():
             DiseasePrediction.created_at.desc()
         ).all()
 
-        return history
+        result = []
+
+        for item in history:
+            result.append({
+                "id": item.id,
+                "image_url": item.image_url,
+                "disease": item.disease,
+                "confidence": item.confidence,
+                "symptoms": json.loads(item.symptoms) if item.symptoms else [],
+                "treatment": json.loads(item.treatment) if item.treatment else [],
+                "prevention": json.loads(item.prevention) if item.prevention else [],
+                "created_at": item.created_at
+            })
+
+        return result
 
     finally:
         db.close()
@@ -275,3 +231,70 @@ def weather_advisory(city: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+@app.post("/predict-disease")
+async def predict_disease(file: UploadFile = File(...)):
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Please upload a valid image file")
+
+    image_bytes = await file.read()
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+        temp_file.write(image_bytes)
+        temp_path = temp_file.name
+
+    upload_result = cloudinary.uploader.upload(
+        temp_path,
+        folder="agrimind_disease_images"
+    )
+
+    image_url = upload_result["secure_url"]
+
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    img = img.resize((224, 224))
+
+    img_array = np.array(img)
+    img_array = np.expand_dims(img_array, axis=0)
+
+    predictions = disease_model.predict(img_array)
+
+    predicted_index = int(np.argmax(predictions[0]))
+    confidence = float(predictions[0][predicted_index])
+    disease_name = disease_class_names[predicted_index]
+
+    info = disease_info.get(disease_name, {
+        "symptoms": ["No symptom information available."],
+        "treatment": ["No treatment information available."],
+        "prevention": ["No prevention information available."]
+    })
+
+    db = SessionLocal()
+
+    try:
+        new_prediction = DiseasePrediction(
+            filename=file.filename,
+            image_url=image_url,
+            disease=disease_name,
+            confidence=round(confidence * 100, 2),
+            symptoms=json.dumps(info["symptoms"]),
+            treatment=json.dumps(info["treatment"]),
+            prevention=json.dumps(info["prevention"])
+        )
+
+        db.add(new_prediction)
+        db.commit()
+        db.refresh(new_prediction)
+
+        return {
+            "id": new_prediction.id,
+            "image_url": image_url,
+            "disease": disease_name,
+            "confidence": round(confidence * 100, 2),
+            "symptoms": info["symptoms"],
+            "treatment": info["treatment"],
+            "prevention": info["prevention"]
+        }
+
+    finally:
+        db.close()

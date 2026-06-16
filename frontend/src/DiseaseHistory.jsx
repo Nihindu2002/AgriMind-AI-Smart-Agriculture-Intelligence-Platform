@@ -5,6 +5,10 @@ function DiseaseHistory({ refreshDiseaseHistory }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const formatDiseaseName = (disease) => {
+    return disease.replace(/___/g, " - ").replace(/_/g, " ");
+  };
+
   const fetchHistory = async () => {
     try {
       setLoading(true);
@@ -24,12 +28,6 @@ function DiseaseHistory({ refreshDiseaseHistory }) {
   useEffect(() => {
     fetchHistory();
   }, [refreshDiseaseHistory]);
-
-  const formatDiseaseName = (disease) => {
-    return disease
-      .replace(/___/g, " - ")
-      .replace(/_/g, " ");
-  };
 
   return (
     <div style={{ marginTop: "30px" }}>
@@ -75,9 +73,29 @@ function DiseaseHistory({ refreshDiseaseHistory }) {
             </h3>
 
             <p>
-              <strong>Confidence:</strong>{" "}
-              {item.confidence}%
+              <strong>Confidence:</strong> {item.confidence}%
             </p>
+
+            <h4>Symptoms</h4>
+            <ul>
+              {item.symptoms.map((symptom, index) => (
+                <li key={index}>{symptom}</li>
+              ))}
+            </ul>
+
+            <h4>Treatment</h4>
+            <ul>
+              {item.treatment.map((treatment, index) => (
+                <li key={index}>{treatment}</li>
+              ))}
+            </ul>
+
+            <h4>Prevention</h4>
+            <ul>
+              {item.prevention.map((prevention, index) => (
+                <li key={index}>{prevention}</li>
+              ))}
+            </ul>
 
             <p>
               <strong>Predicted At:</strong>{" "}

@@ -17,15 +17,18 @@ class CropPrediction(Base):
     recommended_crop = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
 class DiseasePrediction(Base):
     __tablename__ = "disease_predictions"
 
     id = Column(Integer, primary_key=True, index=True)
-
     filename = Column(String)
     image_url = Column(String)
-
     disease = Column(String)
     confidence = Column(Float)
+
+    symptoms = Column(String)
+    treatment = Column(String)
+    prevention = Column(String)
 
     created_at = Column(DateTime, default=datetime.utcnow)
