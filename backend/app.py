@@ -23,6 +23,9 @@ import tempfile
 import cloudinary.uploader
 import cloudinary_config
 
+from weather.weather_service import get_current_weather
+from weather.recommendations import generate_weather_recommendations
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -257,3 +260,18 @@ def get_disease_history():
 
     finally:
         db.close()
+
+
+@app.get("/weather-advisory/{city}")
+def weather_advisory(city: str):
+    try:
+        weather = get_current_weather(city)
+        recommendations = generate_weather_recommendations(weather)
+
+        return {
+            "weather": weather,
+            "recommendations": recommendations
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

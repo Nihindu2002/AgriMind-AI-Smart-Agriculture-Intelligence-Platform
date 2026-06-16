@@ -22,10 +22,12 @@ dist/
 # Virtual environments
 venv/
 .venv/
+.venv*/
 env/
 .env/
 myenv/
 myenv*/
+backend/.venv*/
 backend/myenv*/
 
 # Jupyter
