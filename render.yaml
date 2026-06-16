@@ -8,3 +8,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.8"
+      - key: CUDA_VISIBLE_DEVICES
+        value: "-1"
