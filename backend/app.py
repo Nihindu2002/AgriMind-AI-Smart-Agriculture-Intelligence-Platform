@@ -19,6 +19,10 @@ from PIL import Image
 from database import engine, SessionLocal
 from models import Base, CropPrediction, DiseasePrediction
 
+import tempfile
+import cloudinary.uploader
+import cloudinary_config
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -179,10 +183,29 @@ def get_crop_stats():
 @app.post("/predict-disease")
 async def predict_disease(file: UploadFile = File(...)):
     if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Please upload a valid image file")
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a valid image file"
+        )
 
     image_bytes = await file.read()
 
+    # Upload image to Cloudinary
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".jpg"
+    ) as temp_file:
+        temp_file.write(image_bytes)
+        temp_path = temp_file.name
+
+    upload_result = cloudinary.uploader.upload(
+        temp_path,
+        folder="agrimind_disease_images"
+    )
+
+    image_url = upload_result["secure_url"]
+
+    # Process image for prediction
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     img = img.resize((224, 224))
 
@@ -193,6 +216,7 @@ async def predict_disease(file: UploadFile = File(...)):
 
     predicted_index = int(np.argmax(predictions[0]))
     confidence = float(predictions[0][predicted_index])
+
     disease_name = disease_class_names[predicted_index]
 
     db = SessionLocal()
@@ -200,8 +224,9 @@ async def predict_disease(file: UploadFile = File(...)):
     try:
         new_prediction = DiseasePrediction(
             filename=file.filename,
+            image_url=image_url,
             disease=disease_name,
-            confidence=round(confidence * 100, 2),
+            confidence=round(confidence * 100, 2)
         )
 
         db.add(new_prediction)
@@ -210,9 +235,10 @@ async def predict_disease(file: UploadFile = File(...)):
 
         return {
             "id": new_prediction.id,
+            "image_url": image_url,
             "filename": file.filename,
             "disease": disease_name,
-            "confidence": round(confidence * 100, 2),
+            "confidence": round(confidence * 100, 2)
         }
 
     finally:

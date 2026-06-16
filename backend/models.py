@@ -21,7 +21,11 @@ class DiseasePrediction(Base):
     __tablename__ = "disease_predictions"
 
     id = Column(Integer, primary_key=True, index=True)
+
     filename = Column(String)
+    image_url = Column(String)
+
     disease = Column(String)
     confidence = Column(Float)
+
     created_at = Column(DateTime, default=datetime.utcnow)
