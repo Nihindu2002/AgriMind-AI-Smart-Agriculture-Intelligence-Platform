@@ -1,7 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 
-function PlantDiseaseUpload() {
+function PlantDiseaseUpload({ onDiseaseSaved }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState("");
   const [result, setResult] = useState(null);
@@ -38,6 +38,10 @@ function PlantDiseaseUpload() {
     );
 
     setResult(response.data);
+
+    if (onDiseaseSaved) {
+  onDiseaseSaved();
+}
   };
 
   return (

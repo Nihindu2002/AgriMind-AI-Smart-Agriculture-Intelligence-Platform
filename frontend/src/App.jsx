@@ -2,9 +2,11 @@ import { useState } from "react";
 import CropPredictionForm from "./CropPredictionForm";
 import CropHistory from "./CropHistory";
 import PlantDiseaseUpload from "./PlantDiseaseUpload";
+import DiseaseHistory from "./DiseaseHistory";
 
 function App() {
   const [refreshHistory, setRefreshHistory] = useState(false);
+  const [refreshDiseaseHistory, setRefreshDiseaseHistory] = useState(false);
 
   return (
     <div>
@@ -16,7 +18,11 @@ function App() {
 
       <CropHistory refreshHistory={refreshHistory} />
 
-      <PlantDiseaseUpload />
+      <PlantDiseaseUpload
+        onDiseaseSaved={() => setRefreshDiseaseHistory((prev) => !prev)}
+      />
+
+      <DiseaseHistory refreshDiseaseHistory={refreshDiseaseHistory} />
     </div>
   );
 }
