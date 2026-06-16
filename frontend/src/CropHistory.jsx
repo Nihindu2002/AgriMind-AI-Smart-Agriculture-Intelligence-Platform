@@ -3,16 +3,55 @@ import axios from "axios";
 
 function CropHistory({ refreshHistory }) {
   const [history, setHistory] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const getAuthHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  });
 
   const fetchHistory = async () => {
     try {
+      setErrorMessage("");
+
       const response = await axios.get(
-        "http://127.0.0.1:8000/crop-history"
+        "http://127.0.0.1:8000/crop-history",
+        {
+          headers: getAuthHeaders(),
+        }
       );
 
       setHistory(response.data);
     } catch (error) {
       console.error("Error loading history:", error);
+      if (error.response?.status === 401) {
+        setErrorMessage("Your session expired. Please log in again.");
+      } else {
+        setErrorMessage("Unable to load crop history.");
+      }
+    }
+  };
+
+  const deletePrediction = async (predictionId) => {
+    try {
+      setErrorMessage("");
+
+      await axios.delete(
+        `http://127.0.0.1:8000/crop-history/${predictionId}`,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
+
+      setHistory((currentHistory) =>
+        currentHistory.filter((item) => item.id !== predictionId)
+      );
+    } catch (error) {
+      console.error("Error deleting prediction:", error);
+      if (error.response?.status === 401) {
+        setErrorMessage("Your session expired. Please log in again.");
+      } else {
+        setErrorMessage("Unable to delete this crop prediction.");
+      }
     }
   };
 
@@ -23,6 +62,8 @@ function CropHistory({ refreshHistory }) {
   return (
     <div>
       <h2>Prediction History</h2>
+
+      {errorMessage && <p>{errorMessage}</p>}
 
       {history.length === 0 ? (
         <p>No predictions found.</p>
@@ -59,6 +100,10 @@ function CropHistory({ refreshHistory }) {
               Created:{" "}
               {new Date(item.created_at).toLocaleString()}
             </p>
+
+            <button onClick={() => deletePrediction(item.id)}>
+              Delete
+            </button>
           </div>
         ))
       )}

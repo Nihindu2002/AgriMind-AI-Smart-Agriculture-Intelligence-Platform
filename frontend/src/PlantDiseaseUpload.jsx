@@ -6,6 +6,11 @@ function PlantDiseaseUpload({ onDiseaseSaved }) {
   const [preview, setPreview] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const getAuthHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  });
 
   const formatDiseaseName = (disease) => {
     if (!disease) return "Unknown Disease";
@@ -32,6 +37,7 @@ function PlantDiseaseUpload({ onDiseaseSaved }) {
 
     try {
       setLoading(true);
+      setErrorMessage("");
 
       const formData = new FormData();
       formData.append("file", file);
@@ -42,6 +48,7 @@ function PlantDiseaseUpload({ onDiseaseSaved }) {
         {
           headers: {
             "Content-Type": "multipart/form-data",
+            ...getAuthHeaders(),
           },
         }
       );
@@ -53,7 +60,11 @@ function PlantDiseaseUpload({ onDiseaseSaved }) {
       }
     } catch (error) {
       console.error("Disease prediction failed:", error);
-      alert("Disease prediction failed");
+      if (error.response?.status === 401) {
+        setErrorMessage("Your session expired. Please log in again.");
+      } else {
+        setErrorMessage("Disease prediction failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -74,6 +85,8 @@ function PlantDiseaseUpload({ onDiseaseSaved }) {
           {loading ? "Detecting..." : "Detect Disease"}
         </button>
       </form>
+
+      {errorMessage && <p>{errorMessage}</p>}
 
       {preview && (
         <img

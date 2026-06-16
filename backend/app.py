@@ -6,9 +6,14 @@ import json
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import Depends, FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
+from dotenv import load_dotenv
+from jose import JWTError, jwt
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 import joblib
 import pandas as pd
@@ -17,7 +22,7 @@ import numpy as np
 from PIL import Image
 
 from database import engine, SessionLocal
-from models import Base, CropPrediction, DiseasePrediction
+from models import Base, CropPrediction, DiseasePrediction, User
 
 import tempfile
 import cloudinary.uploader
@@ -26,14 +31,14 @@ import cloudinary_config
 from weather.weather_service import get_current_weather
 from weather.recommendations import generate_weather_recommendations
 
-import os
-from dotenv import load_dotenv
-from jose import jwt
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
-from models import User
 
 BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+JWT_ALGORITHM = "HS256"
+security = HTTPBearer(auto_error=False)
 
 # Plant disease model paths
 plant_disease_dir = BASE_DIR / "plant_disease_detection" / "models"
@@ -97,13 +102,64 @@ class CropInput(BaseModel):
 with open(disease_info_path, "r") as f:
     disease_info = json.load(f)
 
+
+class GoogleToken(BaseModel):
+    token: str
+
+
+def create_access_token(data: dict):
+    if not JWT_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="JWT secret key is not configured")
+
+    return jwt.encode(data, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+
+    if not JWT_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="JWT secret key is not configured")
+
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            JWT_SECRET_KEY,
+            algorithms=[JWT_ALGORITHM]
+        )
+        user_id = payload.get("user_id")
+
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    db = SessionLocal()
+
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+
+        if user is None:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        return user
+
+    finally:
+        db.close()
+
+
 @app.get("/")
 def home():
     return {"message": "AgriMind AI API is running."}
 
-
 @app.post("/predict-crop")
-def predict_crop(data: CropInput):
+def predict_crop(
+    data: CropInput,
+    current_user: User = Depends(get_current_user)
+):
     input_data = pd.DataFrame([data.model_dump()])
 
     prediction = crop_model.predict(input_data)[0]
@@ -113,6 +169,7 @@ def predict_crop(data: CropInput):
 
     try:
         new_prediction = CropPrediction(
+            user_id=current_user.id,
             N=data.N,
             P=data.P,
             K=data.K,
@@ -129,7 +186,7 @@ def predict_crop(data: CropInput):
 
         return {
             "id": new_prediction.id,
-            "recommended_crop": crop_name,
+            "recommended_crop": crop_name
         }
 
     finally:
@@ -137,27 +194,32 @@ def predict_crop(data: CropInput):
 
 
 @app.get("/crop-history")
-def get_crop_history():
+def get_crop_history(
+    current_user: User = Depends(get_current_user)
+):
     db = SessionLocal()
 
     try:
-        history = db.query(CropPrediction).order_by(
-            CropPrediction.created_at.desc()
-        ).all()
+        history = db.query(CropPrediction).filter(
+            CropPrediction.user_id == current_user.id
+        ).order_by(CropPrediction.created_at.desc()).all()
 
         return history
 
     finally:
         db.close()
 
-
 @app.delete("/crop-history/{prediction_id}")
-def delete_crop_history(prediction_id: int):
+def delete_crop_history(
+    prediction_id: int,
+    current_user: User = Depends(get_current_user)
+):
     db = SessionLocal()
 
     try:
         prediction = db.query(CropPrediction).filter(
-            CropPrediction.id == prediction_id
+            CropPrediction.id == prediction_id,
+            CropPrediction.user_id == current_user.id
         ).first()
 
         if prediction is None:
@@ -176,15 +238,19 @@ def delete_crop_history(prediction_id: int):
 
 
 @app.get("/crop-stats")
-def get_crop_stats():
+def get_crop_stats(
+    current_user: User = Depends(get_current_user)
+):
     db = SessionLocal()
 
     try:
-        total_predictions = db.query(CropPrediction).count()
+        total_predictions = db.query(CropPrediction).filter(
+            CropPrediction.user_id == current_user.id
+        ).count()
 
-        latest_prediction = db.query(CropPrediction).order_by(
-            CropPrediction.created_at.desc()
-        ).first()
+        latest_prediction = db.query(CropPrediction).filter(
+            CropPrediction.user_id == current_user.id
+        ).order_by(CropPrediction.created_at.desc()).first()
 
         return {
             "total_predictions": total_predictions,
@@ -196,13 +262,15 @@ def get_crop_stats():
 
 
 @app.get("/disease-history")
-def get_disease_history():
+def get_disease_history(
+    current_user: User = Depends(get_current_user)
+):
     db = SessionLocal()
 
     try:
-        history = db.query(DiseasePrediction).order_by(
-            DiseasePrediction.created_at.desc()
-        ).all()
+        history = db.query(DiseasePrediction).filter(
+            DiseasePrediction.user_id == current_user.id
+        ).order_by(DiseasePrediction.created_at.desc()).all()
 
         result = []
 
@@ -240,7 +308,10 @@ def weather_advisory(city: str):
     
 
 @app.post("/predict-disease")
-async def predict_disease(file: UploadFile = File(...)):
+async def predict_disease(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Please upload a valid image file")
 
@@ -279,6 +350,7 @@ async def predict_disease(file: UploadFile = File(...)):
 
     try:
         new_prediction = DiseasePrediction(
+            user_id=current_user.id,
             filename=file.filename,
             image_url=image_url,
             disease=disease_name,
@@ -304,20 +376,6 @@ async def predict_disease(file: UploadFile = File(...)):
 
     finally:
         db.close()
-
-load_dotenv()
-
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-JWT_ALGORITHM = "HS256"
-
-
-class GoogleToken(BaseModel):
-    token: str
-
-
-def create_access_token(data: dict):
-    return jwt.encode(data, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
 @app.post("/auth/google")

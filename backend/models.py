@@ -1,37 +1,7 @@
-from sqlalchemy import Column, Integer, Float, String, DateTime
+from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey
 from datetime import datetime
 from database import Base
 
-
-class CropPrediction(Base):
-    __tablename__ = "crop_predictions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    N = Column(Float)
-    P = Column(Float)
-    K = Column(Float)
-    temperature = Column(Float)
-    humidity = Column(Float)
-    ph = Column(Float)
-    rainfall = Column(Float)
-    recommended_crop = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class DiseasePrediction(Base):
-    __tablename__ = "disease_predictions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    filename = Column(String)
-    image_url = Column(String)
-    disease = Column(String)
-    confidence = Column(Float)
-
-    symptoms = Column(String)
-    treatment = Column(String)
-    prevention = Column(String)
-
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 class User(Base):
     __tablename__ = "users"
@@ -41,4 +11,40 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     name = Column(String)
     picture = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CropPrediction(Base):
+    __tablename__ = "crop_predictions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    N = Column(Float)
+    P = Column(Float)
+    K = Column(Float)
+    temperature = Column(Float)
+    humidity = Column(Float)
+    ph = Column(Float)
+    rainfall = Column(Float)
+    recommended_crop = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class DiseasePrediction(Base):
+    __tablename__ = "disease_predictions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    filename = Column(String)
+    image_url = Column(String)
+    disease = Column(String)
+    confidence = Column(Float)
+
+    symptoms = Column(String)
+    treatment = Column(String)
+    prevention = Column(String)
+
     created_at = Column(DateTime, default=datetime.utcnow)

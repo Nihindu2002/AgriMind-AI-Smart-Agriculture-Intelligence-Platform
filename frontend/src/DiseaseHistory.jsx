@@ -4,6 +4,11 @@ import axios from "axios";
 function DiseaseHistory({ refreshDiseaseHistory }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const getAuthHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  });
 
   const formatDiseaseName = (disease) => {
     return disease.replace(/___/g, " - ").replace(/_/g, " ");
@@ -12,14 +17,23 @@ function DiseaseHistory({ refreshDiseaseHistory }) {
   const fetchHistory = async () => {
     try {
       setLoading(true);
+      setErrorMessage("");
 
       const response = await axios.get(
-        "http://127.0.0.1:8000/disease-history"
+        "http://127.0.0.1:8000/disease-history",
+        {
+          headers: getAuthHeaders(),
+        }
       );
 
       setHistory(response.data);
     } catch (error) {
       console.error("Error loading disease history:", error);
+      if (error.response?.status === 401) {
+        setErrorMessage("Your session expired. Please log in again.");
+      } else {
+        setErrorMessage("Unable to load disease history.");
+      }
     } finally {
       setLoading(false);
     }
@@ -32,6 +46,8 @@ function DiseaseHistory({ refreshDiseaseHistory }) {
   return (
     <div style={{ marginTop: "30px" }}>
       <h2>Disease Prediction History</h2>
+
+      {errorMessage && <p>{errorMessage}</p>}
 
       {loading ? (
         <p>Loading...</p>

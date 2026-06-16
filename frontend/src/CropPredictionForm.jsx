@@ -13,6 +13,11 @@ function CropPredictionForm({ onPredictionSaved }) {
   });
 
   const [result, setResult] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const getAuthHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  });
 
   const handleChange = (e) => {
     setFormData({
@@ -23,11 +28,15 @@ function CropPredictionForm({ onPredictionSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage("");
 
     try {
       const response = await axios.post(
         "http://127.0.0.1:8000/predict-crop",
-        formData
+        formData,
+        {
+          headers: getAuthHeaders(),
+        }
       );
 
       setResult(response.data.recommended_crop);
@@ -37,6 +46,11 @@ function CropPredictionForm({ onPredictionSaved }) {
       }
     } catch (error) {
       console.error("Prediction failed:", error);
+      if (error.response?.status === 401) {
+        setErrorMessage("Your session expired. Please log in again.");
+      } else {
+        setErrorMessage("Crop prediction failed. Please try again.");
+      }
     }
   };
 
@@ -66,6 +80,8 @@ function CropPredictionForm({ onPredictionSaved }) {
           Recommended Crop: {result}
         </h3>
       )}
+
+      {errorMessage && <p>{errorMessage}</p>}
     </div>
   );
 }
