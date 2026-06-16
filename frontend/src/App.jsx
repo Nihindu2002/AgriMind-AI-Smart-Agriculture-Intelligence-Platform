@@ -232,9 +232,6 @@ function Navbar({ user, onLogout, onLoginSuccess }) {
             <a className="btn btn-ghost btn-small nav-signin-link" href="#auth">
               Sign in
             </a>
-            <div className="nav-google-login">
-              <GoogleLoginButton onLoginSuccess={onLoginSuccess} />
-            </div>
           </div>
         )}
       </div>

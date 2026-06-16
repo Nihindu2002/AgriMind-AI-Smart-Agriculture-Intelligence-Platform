@@ -45,7 +45,11 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = "HS256"
 security = HTTPBearer(auto_error=False)
 
-DEFAULT_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://agri-mind-ai-smart-agriculture-inte.vercel.app",
+]
 
 
 def get_allowed_origins():

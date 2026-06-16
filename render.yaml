@@ -10,3 +10,5 @@ services:
         value: "3.12.8"
       - key: CUDA_VISIBLE_DEVICES
         value: "-1"
+      - key: FRONTEND_ORIGINS
+        value: "http://localhost:5173,http://127.0.0.1:5173,https://agri-mind-ai-smart-agriculture-inte.vercel.app"
