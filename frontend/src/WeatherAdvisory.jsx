@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { API_BASE_URL } from "./api";
+import { API_BASE_URL, getAuthHeaders } from "./api";
 
 function getApiErrorMessage(error, fallbackMessage) {
   return error.response?.data?.detail || fallbackMessage;
@@ -55,7 +55,10 @@ function WeatherAdvisory() {
       setLoadingMessage("Fetching weather...");
 
       const response = await axios.get(
-        `${API_BASE_URL}/weather-advisory/${encodeURIComponent(trimmedCity)}`
+        `${API_BASE_URL}/weather-advisory/${encodeURIComponent(trimmedCity)}`,
+        {
+          headers: getAuthHeaders(),
+        }
       );
 
       setWeatherData(response.data);
@@ -90,6 +93,7 @@ function WeatherAdvisory() {
           const response = await axios.get(
             `${API_BASE_URL}/weather-advisory-location`,
             {
+              headers: getAuthHeaders(),
               params: {
                 lat: latitude,
                 lon: longitude,

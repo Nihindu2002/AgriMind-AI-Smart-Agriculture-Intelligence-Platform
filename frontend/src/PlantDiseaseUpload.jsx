@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { API_BASE_URL } from "./api";
+import { API_BASE_URL, getAuthHeaders } from "./api";
 
 function PlantDiseaseUpload({ onDiseaseSaved }) {
   const [file, setFile] = useState(null);
@@ -8,10 +8,6 @@ function PlantDiseaseUpload({ onDiseaseSaved }) {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  const getAuthHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
 
   const formatDiseaseName = (disease) => {
     if (!disease) return "Unknown Disease";

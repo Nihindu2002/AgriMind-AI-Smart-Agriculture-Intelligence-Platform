@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { API_BASE_URL } from "./api";
+import { API_BASE_URL, getAuthHeaders } from "./api";
 
 function WeatherAdvisory() {
   const [city, setCity] = useState("");
@@ -9,7 +9,10 @@ function WeatherAdvisory() {
   const fetchWeather = async () => {
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/weather-advisory/${city}`
+        `${API_BASE_URL}/weather-advisory/${encodeURIComponent(city)}`,
+        {
+          headers: getAuthHeaders(),
+        }
       );
 
       setWeatherData(response.data);

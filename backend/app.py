@@ -2,6 +2,10 @@ import os
 from pathlib import Path
 import io
 import json
+import hashlib
+import hmac
+import secrets
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -14,8 +18,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from jose import JWTError, jwt
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
+from sqlalchemy import inspect, text
 
 import joblib
 import pandas as pd
@@ -40,9 +43,23 @@ from weather.recommendations import generate_weather_recommendations
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+def get_int_env(name: str, default: int):
+    raw_value = os.getenv(name)
+
+    if not raw_value:
+        return default
+
+    try:
+        return int(raw_value)
+    except ValueError:
+        return default
+
+
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = get_int_env("ACCESS_TOKEN_EXPIRE_MINUTES", 480)
+PASSWORD_HASH_ITERATIONS = get_int_env("PASSWORD_HASH_ITERATIONS", 260000)
 security = HTTPBearer(auto_error=False)
 
 DEFAULT_ALLOWED_ORIGINS = [
@@ -129,7 +146,18 @@ label_encoder = joblib.load(str(label_encoder_path))
 
 app = FastAPI(title="AgriMind AI API")
 
+
+def ensure_manual_auth_columns():
+    inspector = inspect(engine)
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+
+    if "password_hash" not in user_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+
+
 Base.metadata.create_all(bind=engine)
+ensure_manual_auth_columns()
 
 app.add_middleware(
     CORSMiddleware,
@@ -153,15 +181,92 @@ with open(disease_info_path, "r") as f:
     disease_info = json.load(f)
 
 
-class GoogleToken(BaseModel):
-    token: str
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+    confirm_password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+def normalize_email(email: str):
+    return email.strip().lower()
+
+
+def validate_email(email: str):
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address")
+
+
+def hash_password(password: str):
+    salt = secrets.token_urlsafe(16)
+    password_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        PASSWORD_HASH_ITERATIONS,
+    ).hex()
+
+    return f"pbkdf2_sha256${PASSWORD_HASH_ITERATIONS}${salt}${password_hash}"
+
+
+def verify_password(password: str, stored_hash: str | None):
+    if not stored_hash:
+        return False
+
+    try:
+        algorithm, iterations, salt, expected_hash = stored_hash.split("$", 3)
+
+        if algorithm != "pbkdf2_sha256":
+            return False
+
+        password_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt.encode("utf-8"),
+            int(iterations),
+        ).hex()
+
+        return hmac.compare_digest(password_hash, expected_hash)
+
+    except (ValueError, TypeError):
+        return False
 
 
 def create_access_token(data: dict):
     if not JWT_SECRET_KEY:
         raise HTTPException(status_code=500, detail="JWT secret key is not configured")
 
-    return jwt.encode(data, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    token_data = data.copy()
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    token_data.update({"exp": expires_at})
+
+    return jwt.encode(token_data, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def serialize_user(user: User):
+    return {
+        "id": user.id,
+        "email": user.email,
+    }
+
+
+def build_auth_response(user: User):
+    access_token = create_access_token({
+        "user_id": user.id,
+        "email": user.email
+    })
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": serialize_user(user),
+    }
 
 
 def get_current_user(
@@ -355,6 +460,7 @@ def build_weather_advisory_response(weather):
 def weather_advisory_location(
     lat: float = Query(..., description="Latitude for current location"),
     lon: float = Query(..., description="Longitude for current location"),
+    current_user: User = Depends(get_current_user),
 ):
     try:
         weather = get_current_weather_by_location(lat, lon)
@@ -368,7 +474,10 @@ def weather_advisory_location(
 
 
 @app.get("/weather-advisory/{city}")
-def weather_advisory(city: str):
+def weather_advisory(
+    city: str,
+    current_user: User = Depends(get_current_user),
+):
     try:
         weather = get_current_weather(city)
         return build_weather_advisory_response(weather)
@@ -452,54 +561,65 @@ async def predict_disease(
         db.close()
 
 
-@app.post("/auth/google")
-def google_auth(data: GoogleToken):
+@app.post("/auth/signup", status_code=201)
+def signup(data: SignupRequest):
+    email = normalize_email(data.email)
+
+    validate_email(email)
+
+    if not data.password:
+        raise HTTPException(status_code=400, detail="Password is required")
+
+    if not data.confirm_password:
+        raise HTTPException(status_code=400, detail="Confirm password is required")
+
+    if data.password != data.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
+    db = SessionLocal()
+
     try:
-        id_info = id_token.verify_oauth2_token(
-            data.token,
-            google_requests.Request(),
-            GOOGLE_CLIENT_ID
-        )
+        user = db.query(User).filter(User.email == email).first()
 
-        google_id = id_info["sub"]
-        email = id_info["email"]
-        name = id_info.get("name")
-        picture = id_info.get("picture")
+        if user and user.password_hash:
+            raise HTTPException(status_code=409, detail="Email is already registered")
 
-        db = SessionLocal()
+        if user:
+            user.password_hash = hash_password(data.password)
+        else:
+            user = User(
+                email=email,
+                password_hash=hash_password(data.password),
+            )
+            db.add(user)
 
-        try:
-            user = db.query(User).filter(User.email == email).first()
+        db.commit()
+        db.refresh(user)
 
-            if not user:
-                user = User(
-                    google_id=google_id,
-                    email=email,
-                    name=name,
-                    picture=picture
-                )
-                db.add(user)
-                db.commit()
-                db.refresh(user)
+        return build_auth_response(user)
 
-            access_token = create_access_token({
-                "user_id": user.id,
-                "email": user.email
-            })
+    finally:
+        db.close()
 
-            return {
-                "access_token": access_token,
-                "token_type": "bearer",
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "name": user.name,
-                    "picture": user.picture
-                }
-            }
 
-        finally:
-            db.close()
+@app.post("/auth/login")
+def login(data: LoginRequest):
+    email = normalize_email(data.email)
 
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
+    validate_email(email)
+
+    if not data.password:
+        raise HTTPException(status_code=400, detail="Password is required")
+
+    db = SessionLocal()
+
+    try:
+        user = db.query(User).filter(User.email == email).first()
+
+        if not user or not verify_password(data.password, user.password_hash):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+
+        return build_auth_response(user)
+
+    finally:
+        db.close()

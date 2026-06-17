@@ -1,15 +1,11 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { API_BASE_URL } from "./api";
+import { API_BASE_URL, getAuthHeaders } from "./api";
 
 function DiseaseHistory({ refreshDiseaseHistory }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-
-  const getAuthHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
 
   const formatDiseaseName = (disease) => {
     return disease.replace(/___/g, " - ").replace(/_/g, " ");
@@ -41,7 +37,9 @@ function DiseaseHistory({ refreshDiseaseHistory }) {
   };
 
   useEffect(() => {
-    fetchHistory();
+    const loadHistoryTimer = window.setTimeout(fetchHistory, 0);
+
+    return () => window.clearTimeout(loadHistoryTimer);
   }, [refreshDiseaseHistory]);
 
   return (

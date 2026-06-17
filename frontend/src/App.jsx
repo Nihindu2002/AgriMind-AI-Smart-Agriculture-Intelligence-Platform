@@ -1,12 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import axios from "axios";
 import "./App.css";
 import logoMark from "./assets/agrimind-logo.svg";
-import GoogleLoginButton from "./GoogleLoginButton";
 import CropPredictionForm from "./CropPredictionForm";
 import CropHistory from "./CropHistory";
 import PlantDiseaseUpload from "./PlantDiseaseUpload";
 import DiseaseHistory from "./DiseaseHistory";
 import WeatherAdvisory from "./WeatherAdvisory";
+import {
+  API_BASE_URL,
+  SESSION_TIMEOUT_MS,
+  clearAuthSession,
+  getStoredSessionUser,
+  refreshSessionExpiry,
+  setStoredAuthSession,
+} from "./api";
 
 const featureLinks = [
   { label: "Crop Recommendation", href: "#crop-recommendation" },
@@ -113,14 +121,6 @@ const systemSlides = [
   },
 ];
 
-function getStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem("user")) || null;
-  } catch {
-    return null;
-  }
-}
-
 function ProductSlideshow() {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeSlide = systemSlides[activeIndex];
@@ -195,7 +195,8 @@ function ProductSlideshow() {
 }
 
 function Navbar({ user, onLogout }) {
-  const userInitial = user?.name?.trim()?.charAt(0)?.toUpperCase() || "A";
+  const userLabel = user?.email || "Account";
+  const userInitial = userLabel.trim().charAt(0).toUpperCase() || "A";
 
   return (
     <header className="site-navbar">
@@ -217,9 +218,9 @@ function Navbar({ user, onLogout }) {
           <div className="nav-account" aria-label="User account">
             <div className="user-chip">
               <span className="user-avatar">{userInitial}</span>
-              <span className="user-name">{user.name}</span>
+              <span className="user-name">{userLabel}</span>
             </div>
-            <button className="btn btn-ghost btn-small" onClick={onLogout}>
+            <button className="btn btn-ghost btn-small" onClick={() => onLogout()}>
               Logout
             </button>
           </div>
@@ -280,7 +281,7 @@ function HeroSection({ user }) {
             </div>
             <div>
               <span>Access</span>
-              <strong>Google secured</strong>
+              <strong>Password secured</strong>
             </div>
           </div>
         </div>
@@ -368,22 +369,157 @@ function HowItWorks() {
   );
 }
 
-function AuthPanel({ onLoginSuccess }) {
+function AuthPanel({ notice, onAuthSuccess }) {
+  const [authMode, setAuthMode] = useState("login");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const isSignup = authMode === "signup";
+
+  const handleModeChange = (mode) => {
+    setAuthMode(mode);
+    setErrorMessage("");
+    setFormData({
+      email: "",
+      password: "",
+      confirmPassword: "",
+    });
+  };
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setFormData((currentFormData) => ({
+      ...currentFormData,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setErrorMessage("");
+
+    if (isSignup && formData.password !== formData.confirmPassword) {
+      setErrorMessage("Passwords do not match.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = isSignup
+        ? {
+            email: formData.email,
+            password: formData.password,
+            confirm_password: formData.confirmPassword,
+          }
+        : {
+            email: formData.email,
+            password: formData.password,
+          };
+
+      const response = await axios.post(
+        `${API_BASE_URL}/auth/${isSignup ? "signup" : "login"}`,
+        payload
+      );
+
+      const sessionUser = setStoredAuthSession(response.data);
+      onAuthSuccess(sessionUser);
+    } catch (error) {
+      console.error("Authentication failed:", error);
+      setErrorMessage(
+        error.response?.data?.detail ||
+          "Authentication failed. Please check your details and try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section className="section auth-section" id="auth">
       <div className="container auth-layout">
         <div className="auth-copy">
-          <p className="eyebrow">Google Auth</p>
+          <p className="eyebrow">Secure Access</p>
           <h2>Sign in to open the AgriMind AI workspace</h2>
           <p>
-            Continue with Google to access crop prediction history, disease scan
-            records, and the live advisory tools.
+            Use your email and password to access crop prediction history,
+            disease scan records, and the live advisory tools.
           </p>
         </div>
 
         <div className="auth-card glass-card reveal-card">
-          <span className="secure-label">Secure demo access</span>
-          <GoogleLoginButton onLoginSuccess={onLoginSuccess} />
+          <div className="auth-tabs" aria-label="Authentication mode">
+            <button
+              className={authMode === "login" ? "active" : ""}
+              onClick={() => handleModeChange("login")}
+              type="button"
+            >
+              Login
+            </button>
+            <button
+              className={authMode === "signup" ? "active" : ""}
+              onClick={() => handleModeChange("signup")}
+              type="button"
+            >
+              Sign up
+            </button>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <label className="auth-field">
+              <span>Email</span>
+              <input
+                autoComplete="email"
+                name="email"
+                onChange={handleChange}
+                placeholder="you@example.com"
+                required
+                type="email"
+                value={formData.email}
+              />
+            </label>
+
+            <label className="auth-field">
+              <span>Password</span>
+              <input
+                autoComplete={isSignup ? "new-password" : "current-password"}
+                name="password"
+                onChange={handleChange}
+                placeholder="Password"
+                required
+                type="password"
+                value={formData.password}
+              />
+            </label>
+
+            {isSignup && (
+              <label className="auth-field">
+                <span>Confirm Password</span>
+                <input
+                  autoComplete="new-password"
+                  name="confirmPassword"
+                  onChange={handleChange}
+                  placeholder="Confirm password"
+                  required
+                  type="password"
+                  value={formData.confirmPassword}
+                />
+              </label>
+            )}
+
+            {notice && <p className="auth-message">{notice}</p>}
+            {errorMessage && <p className="auth-error">{errorMessage}</p>}
+
+            <button className="btn btn-primary auth-submit" disabled={loading} type="submit">
+              {loading ? "Please wait..." : isSignup ? "Create Account" : "Login"}
+            </button>
+          </form>
         </div>
       </div>
     </section>
@@ -466,13 +602,95 @@ function Footer() {
 function App() {
   const [refreshHistory, setRefreshHistory] = useState(false);
   const [refreshDiseaseHistory, setRefreshDiseaseHistory] = useState(false);
-  const [user, setUser] = useState(getStoredUser);
+  const [user, setUser] = useState(getStoredSessionUser);
+  const [authNotice, setAuthNotice] = useState("");
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const handleLogout = useCallback((message = "") => {
+    clearAuthSession();
     setUser(null);
+    setAuthNotice(typeof message === "string" ? message : "");
+  }, []);
+
+  const handleAuthSuccess = (sessionUser) => {
+    setUser(sessionUser);
+    setAuthNotice("");
   };
+
+  useEffect(() => {
+    if (!user) {
+      return undefined;
+    }
+
+    let timeoutId;
+    let lastPersistedActivityAt = 0;
+
+    const logoutForInactivity = () => {
+      handleLogout("Your session timed out after inactivity. Please log in again.");
+    };
+
+    const resetInactivityTimer = () => {
+      if (!getStoredSessionUser()) {
+        logoutForInactivity();
+        return;
+      }
+
+      const now = Date.now();
+
+      if (now - lastPersistedActivityAt > 30000) {
+        refreshSessionExpiry(now);
+        lastPersistedActivityAt = now;
+      }
+
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(logoutForInactivity, SESSION_TIMEOUT_MS);
+    };
+
+    const checkStoredSession = () => {
+      if (!getStoredSessionUser()) {
+        logoutForInactivity();
+      }
+    };
+
+    const syncSessionAcrossTabs = (event) => {
+      if (["token", "user", "sessionExpiresAt"].includes(event.key)) {
+        const storedUser = getStoredSessionUser();
+
+        if (storedUser) {
+          setUser(storedUser);
+        } else {
+          handleLogout();
+        }
+      }
+    };
+
+    const activityEvents = [
+      "click",
+      "keydown",
+      "mousemove",
+      "scroll",
+      "touchstart",
+    ];
+
+    resetInactivityTimer();
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, resetInactivityTimer, { passive: true });
+    });
+    window.addEventListener("storage", syncSessionAcrossTabs);
+
+    const intervalId = window.setInterval(
+      checkStoredSession,
+      Math.min(60000, SESSION_TIMEOUT_MS)
+    );
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, resetInactivityTimer);
+      });
+      window.removeEventListener("storage", syncSessionAcrossTabs);
+    };
+  }, [handleLogout, user]);
 
   return (
     <div className="app-shell">
@@ -484,7 +702,7 @@ function App() {
         <HowItWorks />
 
         {!user ? (
-          <AuthPanel onLoginSuccess={setUser} />
+          <AuthPanel notice={authNotice} onAuthSuccess={handleAuthSuccess} />
         ) : (
           <AuthenticatedWorkspace
             refreshHistory={refreshHistory}

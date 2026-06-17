@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { API_BASE_URL } from "./api";
+import { API_BASE_URL, getAuthHeaders } from "./api";
 
 function CropPredictionForm({ onPredictionSaved }) {
   const [formData, setFormData] = useState({
@@ -15,10 +15,6 @@ function CropPredictionForm({ onPredictionSaved }) {
 
   const [result, setResult] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-
-  const getAuthHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
 
   const handleChange = (e) => {
     setFormData({

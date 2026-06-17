@@ -329,6 +329,11 @@ p {
   transform: translateY(-2px);
 }
 
+.btn:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .btn:focus-visible,
 a:focus-visible,
 button:focus-visible,
@@ -510,18 +515,6 @@ input:focus-visible {
   border-radius: 999px;
   background: var(--lime);
   animation: statusPulse 2.2s ease-in-out infinite;
-}
-
-.nav-google-login {
-  display: flex;
-  align-items: center;
-  min-height: 38px;
-  overflow: hidden;
-  border-radius: var(--radius);
-}
-
-.nav-google-login>div {
-  display: flex;
 }
 
 /* 4. Hero section */
@@ -1107,15 +1100,105 @@ input:focus-visible {
 
 .auth-card {
   display: grid;
-  gap: 20px;
+  gap: 18px;
   justify-items: start;
   padding: 28px;
 }
 
-.secure-label {
+.auth-tabs {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  padding: 4px;
+  background: rgba(2, 9, 7, 0.5);
+}
+
+.auth-tabs button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  font-weight: 850;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.auth-tabs button.active {
+  color: #03110c;
+  background: linear-gradient(135deg, var(--lime), var(--emerald), var(--teal));
+  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.24);
+}
+
+.auth-form {
+  width: 100%;
+  display: grid;
+  gap: 14px;
+}
+
+.auth-field {
+  display: grid;
+  gap: 8px;
   color: var(--heading);
   font-size: 0.88rem;
-  font-weight: 850;
+  font-weight: 800;
+}
+
+.auth-card input[type="email"],
+.auth-card input[type="password"] {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  color: var(--heading);
+  background: rgba(2, 9, 7, 0.62);
+  outline: 0;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.auth-card input::placeholder {
+  color: rgba(216, 239, 227, 0.48);
+}
+
+.auth-card input:focus {
+  border-color: rgba(185, 245, 69, 0.58);
+  box-shadow: 0 0 0 4px rgba(185, 245, 69, 0.1);
+  background: rgba(2, 9, 7, 0.82);
+}
+
+.auth-message,
+.auth-error {
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 0;
+  font-weight: 750;
+}
+
+.auth-message {
+  border: 1px solid rgba(45, 212, 191, 0.22);
+  color: #bff9ef;
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.auth-error {
+  border: 1px solid rgba(251, 113, 133, 0.3);
+  color: #ffd8df;
+  background: rgba(251, 113, 133, 0.09);
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 4px;
 }
 
 /* 7. App sections */
@@ -1399,10 +1482,6 @@ input:focus-visible {
   box-shadow: none;
 }
 
-.auth-card iframe {
-  max-width: 100%;
-}
-
 .weather-advisory {
   display: grid;
   gap: 20px;
@@ -1658,11 +1737,6 @@ input:focus-visible {
   .signed-out-chip,
   .nav-signin-link {
     flex: 1 1 auto;
-  }
-
-  .nav-google-login {
-    width: 100%;
-    justify-content: flex-start;
   }
 
   .user-name {

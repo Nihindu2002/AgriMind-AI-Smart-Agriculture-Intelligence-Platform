@@ -1,14 +1,10 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { API_BASE_URL } from "./api";
+import { API_BASE_URL, getAuthHeaders } from "./api";
 
 function CropHistory({ refreshHistory }) {
   const [history, setHistory] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
-
-  const getAuthHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
 
   const fetchHistory = async () => {
     try {
@@ -57,7 +53,9 @@ function CropHistory({ refreshHistory }) {
   };
 
   useEffect(() => {
-    fetchHistory();
+    const loadHistoryTimer = window.setTimeout(fetchHistory, 0);
+
+    return () => window.clearTimeout(loadHistoryTimer);
   }, [refreshHistory]);
 
   return (
