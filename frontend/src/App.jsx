@@ -194,7 +194,7 @@ function ProductSlideshow() {
   );
 }
 
-function Navbar({ user, onLogout, onLoginSuccess }) {
+function Navbar({ user, onLogout }) {
   const userInitial = user?.name?.trim()?.charAt(0)?.toUpperCase() || "A";
 
   return (
@@ -368,73 +368,6 @@ function HowItWorks() {
   );
 }
 
-function DashboardPreview({ user }) {
-  return (
-    <section className="section" id="dashboard-preview">
-      <div className="container dashboard-preview-grid">
-        <div className="section-heading section-heading-left">
-          <p className="eyebrow">Dashboard Preview Area</p>
-          <h2>{user ? "Your intelligence workspace is ready" : "A demo-ready command center"}</h2>
-          <p>
-            The dashboard is organized around the three core AgriMind AI
-            capabilities, with clean cards for inputs, results, and history.
-          </p>
-        </div>
-
-        <div className="dashboard-shell glass-card reveal-card">
-          <div className="dashboard-toolbar">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-          <div className="dashboard-panels">
-            <div className="preview-panel preview-panel-large">
-              <span>Crop</span>
-              <strong>Best fit recommendation</strong>
-              <div className="signal-line"></div>
-              <div className="preview-row">
-                <small>NPK sample</small>
-                <b>90 / 42 / 43</b>
-              </div>
-              <div className="preview-row">
-                <small>Field pH</small>
-                <b>6.5</b>
-              </div>
-            </div>
-            <div className="preview-panel">
-              <span>Disease</span>
-              <strong>Leaf scan result</strong>
-              <div className="mini-bars">
-                <i></i>
-                <i></i>
-                <i></i>
-              </div>
-              <div className="preview-row">
-                <small>Confidence</small>
-                <b>94%</b>
-              </div>
-            </div>
-            <div className="preview-panel">
-              <span>Weather</span>
-              <strong>Farm advisory</strong>
-              <div className="weather-dots">
-                <i></i>
-                <i></i>
-                <i></i>
-                <i></i>
-              </div>
-              <div className="preview-row">
-                <small>Next action</small>
-                <b>Irrigate later</b>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function AuthPanel({ onLoginSuccess }) {
   return (
     <section className="section auth-section" id="auth">
@@ -543,13 +476,12 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Navbar user={user} onLogout={handleLogout} onLoginSuccess={setUser} />
+      <Navbar user={user} onLogout={handleLogout} />
 
       <main>
         <HeroSection user={user} />
         <FeatureOverview authenticated={Boolean(user)} />
         <HowItWorks />
-        <DashboardPreview user={user} />
 
         {!user ? (
           <AuthPanel onLoginSuccess={setUser} />
