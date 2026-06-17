@@ -66,7 +66,12 @@ DEFAULT_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://agri-mind-ai-smart-agriculture-inte.vercel.app",
+    "https://agri-mind-ai-smart-agriculture-intelligence-platform-8jmjobwq0.vercel.app",
 ]
+
+DEFAULT_ALLOWED_ORIGIN_REGEX = (
+    r"https://agri-mind-ai-smart-agriculture-intelligence-platform-[a-z0-9]+\.vercel\.app"
+)
 
 
 def get_allowed_origins():
@@ -82,6 +87,15 @@ def get_allowed_origins():
     ]
 
     return origins or DEFAULT_ALLOWED_ORIGINS
+
+
+def get_allowed_origin_regex():
+    configured_regex = os.getenv("FRONTEND_ORIGIN_REGEX")
+
+    if configured_regex is None:
+        return DEFAULT_ALLOWED_ORIGIN_REGEX
+
+    return configured_regex.strip() or None
 
 # Plant disease model paths
 plant_disease_dir = BASE_DIR / "plant_disease_detection" / "models"
@@ -162,6 +176,7 @@ ensure_manual_auth_columns()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_allowed_origins(),
+    allow_origin_regex=get_allowed_origin_regex(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
