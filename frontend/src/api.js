@@ -25,8 +25,15 @@ export function maskConfigValue(value) {
 }
 
 export function logGoogleAuthConfig(context = "Google auth config") {
+  const frontendOrigin = getFrontendOrigin();
+  const googleClientId = maskConfigValue(GOOGLE_CLIENT_ID);
+
   console.info(`[AgriMind Auth] ${context}`, {
-    frontendOrigin: getFrontendOrigin(),
-    googleClientId: maskConfigValue(GOOGLE_CLIENT_ID),
+    frontendOrigin,
+    googleClientId,
   });
+
+  console.info(
+    `[AgriMind Auth] ${context}: origin=${frontendOrigin}, googleClientId=${googleClientId}`
+  );
 }
