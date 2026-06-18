@@ -8,6 +8,7 @@ function DiseaseHistory({ refreshDiseaseHistory }) {
   const [errorMessage, setErrorMessage] = useState("");
 
   const formatDiseaseName = (disease) => {
+    if (!disease) return "Unknown Disease";
     return disease.replace(/___/g, " - ").replace(/_/g, " ");
   };
 
@@ -38,86 +39,81 @@ function DiseaseHistory({ refreshDiseaseHistory }) {
 
   useEffect(() => {
     const loadHistoryTimer = window.setTimeout(fetchHistory, 0);
-
     return () => window.clearTimeout(loadHistoryTimer);
   }, [refreshDiseaseHistory]);
 
   return (
-    <div style={{ marginTop: "30px" }}>
-      <h2>Disease Prediction History</h2>
+    <div>
+      <h2>Disease History Log</h2>
+      <p>Consult past leaf diagnostic predictions and corresponding treatment protocols.</p>
 
-      {errorMessage && <p>{errorMessage}</p>}
+      {errorMessage && <p className="auth-error" style={{ marginBottom: "16px" }}>{errorMessage}</p>}
 
       {loading ? (
-        <p>Loading...</p>
+        <p>Loading disease scans...</p>
       ) : history.length === 0 ? (
         <p>No disease predictions found.</p>
       ) : (
-        history.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              border: "1px solid #444",
-              borderRadius: "12px",
-              padding: "15px",
-              marginBottom: "20px",
-              maxWidth: "500px",
-              margin: "20px auto",
-              backgroundColor: "#111827",
-            }}
-          >
-            {item.image_url && (
-              <img
-                src={item.image_url}
-                alt={item.disease}
-                style={{
-                  width: "100%",
-                  height: "250px",
-                  objectFit: "cover",
-                  borderRadius: "10px",
-                  marginBottom: "15px",
-                }}
-              />
-            )}
+        <div className="history-list">
+          {history.map((item) => (
+            <div key={item.id} className="disease-history-card">
+              {item.image_url && (
+                <img
+                  src={item.image_url}
+                  alt={item.disease}
+                  className="disease-image"
+                />
+              )}
 
-            <h3>
-              Disease:{" "}
-              <span style={{ color: "#ff6b6b" }}>
-                {formatDiseaseName(item.disease)}
-              </span>
-            </h3>
+              <div className="disease-title-block">
+                Disease: <span className="disease-label">{formatDiseaseName(item.disease)}</span>
+              </div>
 
-            <p>
-              <strong>Confidence:</strong> {item.confidence}%
-            </p>
+              <div className="disease-confidence">
+                Confidence: <strong>{item.confidence}%</strong>
+              </div>
 
-            <h4>Symptoms</h4>
-            <ul>
-              {item.symptoms.map((symptom, index) => (
-                <li key={index}>{symptom}</li>
-              ))}
-            </ul>
+              <div className="disease-details-section">
+                {item.symptoms && item.symptoms.length > 0 && (
+                  <>
+                    <h4>Symptoms</h4>
+                    <ul>
+                      {item.symptoms.map((symptom, index) => (
+                        <li key={index}>{symptom}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
 
-            <h4>Treatment</h4>
-            <ul>
-              {item.treatment.map((treatment, index) => (
-                <li key={index}>{treatment}</li>
-              ))}
-            </ul>
+                {item.treatment && item.treatment.length > 0 && (
+                  <>
+                    <h4>Treatment</h4>
+                    <ul>
+                      {item.treatment.map((treatment, index) => (
+                        <li key={index}>{treatment}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
 
-            <h4>Prevention</h4>
-            <ul>
-              {item.prevention.map((prevention, index) => (
-                <li key={index}>{prevention}</li>
-              ))}
-            </ul>
+                {item.prevention && item.prevention.length > 0 && (
+                  <>
+                    <h4>Prevention</h4>
+                    <ul>
+                      {item.prevention.map((prevention, index) => (
+                        <li key={index}>{prevention}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
 
-            <p>
-              <strong>Predicted At:</strong>{" "}
-              {new Date(item.created_at).toLocaleString()}
-            </p>
-          </div>
-        ))
+              <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "14px", marginBottom: 0 }}>
+                Scanned At: {new Date(item.created_at).toLocaleString()}
+              </p>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
