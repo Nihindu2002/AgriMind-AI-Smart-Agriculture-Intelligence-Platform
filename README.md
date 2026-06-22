@@ -537,6 +537,5 @@ This project is open source and available under the MIT License. See the LICENSE
 
 ---
 
-**Made with ❤️ by Nihindu2002**
 
 *Last Updated: June 2026*
